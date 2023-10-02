@@ -1,0 +1,22 @@
+---
+title: Simulador
+---
+flowchart TD
+    Start[/Leer carga de trabajo\n del archivo de entrada/] --> Ord[Ordenar procesos por\n tiempo de arribo]
+    Ord --> Init["t := 0\n q := 0"]
+    Init --> CondFin{"¿Carga de\n trabajo\n terminada?"}
+    CondFin -- Sí --> Fin
+    CondFin -- No --> CondPNuevo{"¿Proceso\n nuevo sin \n admitir?"}
+    CondPNuevo -- Sí --> AdmitirP[[Admitir proceso\n nuevo]]
+    AdmitirP --> CondPTerminado
+    CondPNuevo -- No --> CondPTerminado{"¿Proceso \n en la CPU \n terminado?"}
+    CondPTerminado -- Sí --> TerminarP[Terminar proceso \n y liberar partición]
+    CondPTerminado -- No --> CondQuantum{"¿q == 2?"}
+    CondQuantum -- Sí --> ExpropiarP[Expropiar proceso \n y enviarlo al final \n de la cola de listos]
+    CondQuantum -- No --> FinBucle
+    ExpropiarP --> AsignarSigP[Asignar CPU al \n siguiente proceso \n de la cola de listos]
+    TerminarP ---> AsignarSigP
+    AsignarSigP --> ActivarP[[Activar proceso]] --> ImprimirBucle
+    ImprimirBucle[/Imprimir estado de los \n procesos y la memoria/] --> FinBucle
+    FinBucle["t := t + 1 \n q := (q + 1) % 2"] ----> CondFin
+    Fin[/Imprimir reporte/] --> Exit((Fin))
