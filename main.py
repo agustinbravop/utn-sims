@@ -57,10 +57,10 @@ class Simulador:
         self.cola_procesos = carga_trabajo.procesos
         self.procesando = None
         #Esto lo añadi por las consignas pero no me anda tan bien
-        # self.t_actual = 0
-        # self.tt_retorno = 0
-        # self.tt_espera = 0
-        # self.cantidad_procesos = 0
+        self.t_actual = 0
+        self.tt_retorno = 0
+        self.tt_espera = 0
+        self.cantidad_procesos = 0
 
     ##Esto es para hacer las asignacions beft fit
     def asignar_memoria(self, proceso):
@@ -128,7 +128,7 @@ class Simulador:
         print("\nEstado de la cola de procesos listos:")
         print(tabulate(cola_procesos_data, headers=["PID", "tArribo", "tIrrupción", "Mem", "Orden"],
                         tablefmt="fancy_grid"))
-
+    #por alguna razon no llegaba a esto , no cargo mas de 3 procesos 
     # def finalizar_simulacion(self):
     #     if self.cantidad_procesos > 0:
     #         tiempo_promedio_retorno = self.tt_retorno / self.cantidad_procesos
@@ -159,7 +159,7 @@ def main():
         simulador.mostrar_estado()
         input("Presiona Enter para avanzar al siguiente paso...")
 
-    simulador.finalizar_simulacion()
+    # simulador.finalizar_simulacion()
 
 
 
