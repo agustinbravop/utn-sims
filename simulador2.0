@@ -1,16 +1,17 @@
 class Proceso:
-    def __init__(self, id, memoria_necesaria,cuando_entra,cuanto_consume):
+    def __init__(self, id, memoria_necesaria,cuando_entra,cuanto_consume,nro_orden):
         self.id = id
         self.memoria_necesaria = memoria_necesaria
         self.tiempo_arribo=cuando_entra
         self.tiempo_irrupcion=cuanto_consume
+        self.nro_orden=nro_orden# me dice en el orden que cpu los va a ejecutar
         
 
 
 
 
     def __str__(self):
-        return f"Proceso {self.id}: Memoria necesaria = {self.memoria_necesaria} MB"
+        return f"Proceso {self.id}|{self.memoria_necesaria} MB"
 
 
 class Memoria:
@@ -27,7 +28,12 @@ class Memoria:
             return False
         else:
             return True
-
+    
+    def __str__(self):
+        if self.proceso_asignado!=False:
+            return f"contiene a proceso:{self.proceso_asignado.id}| fragmentacion: {self.fragmentacion_interna}MB|procesando:{self.procesando}"
+        else:
+            return "vacio"
 
 class session:
 
@@ -50,10 +56,12 @@ class session:
                     memoria=Memoria(i,250,"010x00",120,False)
                     lista.append(memoria)
             return  lista
+        
 
+        
         def crear_entrada():
             entrada=[]
-
+            
             for i in range(1,11):
                 
                 if i==1:
@@ -81,7 +89,7 @@ class session:
                     consume=2
                     entra=0
 
-                proceso=Proceso(i,tamaño_memoria,entra,consume)
+                proceso=Proceso(i,tamaño_memoria,entra,consume,i)
                 entrada.append(proceso)
             return entrada
 
@@ -109,7 +117,7 @@ class session:
                     if multiprogramacion<5: 
                         self.lista_listo.append(proceso)
 
-                        print("agrege el proceso",proceso.id,"a la cola de listos")
+                        #print("agrege el proceso",proceso.id,"a la cola de listos")
                         multiprogramacion=multiprogramacion+1
 
                     else:
@@ -117,7 +125,7 @@ class session:
                         if multiprogramacion==5: 
                             self.lista_suspendido.append(proceso)
 
-                            print("agrege el proceso",proceso.id,"a la cola de suspendidos")
+                            #print("agrege el proceso",proceso.id,"a la cola de suspendidos")
 
 
             #RAAAARO ESTA SOLUCION
@@ -176,7 +184,15 @@ class session:
 
         #creo las entradas  es decir configuro las caracteristicas de cada proceso
         self.entrada=crear_entrada()
+
+
+        self.orden=0
         self.entrada.sort(key=lambda proceso: proceso.tiempo_arribo)#ordena por tiempo de arribo todo los procesos
+
+        for proceso in self.entrada:
+            self.orden+=1
+            proceso.nro_orden=self.orden
+            
 
 
         #algoritmo de planificacion de procesos. 
@@ -196,9 +212,9 @@ class session:
 
 
         fin=False
-        tiempo=0
-        self.puedo_procesar_otro=True
-
+        tiempo=0 # el tiempo en que esta el programa
+        self.puedo_procesar_otro=True#inicialmente si puedo agregar a la memoria otro.
+        #me dice cual se tiene que procesar ahora en funcion al orden 
 
         while not fin:
             print("TIEMPO:",tiempo)
@@ -212,6 +228,19 @@ class session:
             tiempo+=1
 
 
+            listos = [str(proceso) for proceso in self.lista_listo]
+            salida = [str(proceso) for proceso in self.lista_salida]
+            suspendido = [str(proceso) for proceso in self.lista_suspendido]
+            print(f"cola de listos: {listos}")
+            print(f"cola de suspendidos:{suspendido}")
+            print(f"cola de salida:{salida}")
+
+            print("")
+            print("EN LA MEMORIA:")
+            print("")
+            print("")
+            for i,fragmentacion in enumerate(self.lista_memoria):
+                print(i,")  ",fragmentacion)
 
 
             fin=input()
@@ -233,25 +262,27 @@ class session:
                 if memoria.procesando:
                     #descuento porque ya paso un tiempo
                     memoria.tiempo=memoria.tiempo-1
-                    self.proceso_asignado.tiempo_irrupcion=self.proceso_asignado.tiempo_irrupcion-1
+                    memoria.proceso_asignado.tiempo_irrupcion=memoria.proceso_asignado.tiempo_irrupcion-1
 
-                    if memoria.tiempo<=0 or self.proceso_asignado.tiempo_irrupcion<=0:
+                    if memoria.tiempo<=0 or memoria.proceso_asignado.tiempo_irrupcion<=0:
                         #tiene que salir el proceso de memoria para eso tengo que verificar 
                         #que el proceso le falte todavia o ya esta listo
                         
                         
                         
-                        if self.proceso_asignado.tiempo_irrupcion<=0: 
-                            self.lista_salida.append(self.proceso_asignado)
+                        if memoria.proceso_asignado.tiempo_irrupcion<=0: 
+                            self.lista_salida.append(memoria.proceso_asignado.id)
+                            print("lista salida:",self.lista_salida)
                         else:
                             """si bien saque ya un proceso y la multiprogramacion =4 el proceso
                             sera el ultimo en procesarce entonces le doy espacio que un proceso
                             que esta mas tiempo en la lista de suspendidos pueda entrar"""
+                            memoria.proceso_asignado.nro_orden=self.orden
                             if self.mutiprogramacion==5:
 
-                                self.lista_suspendido.append(self.proceso_asignado)
+                                self.lista_suspendido.append(memoria.proceso_asignado)
                             else:
-                                self.lista_listo.append(self.proceso_asignado)
+                                self.lista_listo.append(memoria.proceso_asignado)
 
                             # cuando quede un proceso inicialmente estara en 1 y  cuando lo quite la 
                             # asignacion este estare en 0    
@@ -262,7 +293,8 @@ class session:
                         memoria.tiempo=2
                         memoria.proceso_asignado=False#saco de memoria 
                         self.puedo_procesar_otro=True#habilito a que se elija otro para procesar.
-                        memoria.procesando=False #la memoria ya no esta proceso nada.   
+                        memoria.procesando=False #la memoria ya no esta proceso nada. 
+
             else:
                 #verifico si puedo asignar un proceso
 
@@ -285,7 +317,60 @@ class session:
 
 
     def asignar_proceso(self):
-        pass
+        """ en este apartado asigno los distintos procesos a la memoria. y ademas pregunto si ya se habilito  para que el procesador ejecute en memoria """
+        
+
+        #-por lo tanto tengo en la cola de listos los procesos.
+
+
+        #-deberia preguntar si hay espacios en memoria en caso de que si recorro la cola de listo y veo si entra alguno en esos espacios.
+        
+        for particion in self.lista_memoria:
+            if particion.proceso_asignado==False:
+                
+                tamaño=particion.tamaño
+
+                for proceso in self.lista_listo:
+
+                    if proceso.memoria_necesaria<=tamaño:
+                        # cargo el proceso a memoria
+                        particion.proceso_asignado=proceso
+                        particion.fragmentacion_interna=tamaño-particion.proceso_asignado.memoria_necesaria
+                        print("cargue proceso a memoria :",particion.proceso_asignado.id)
+                        #lo quito de la cola de listos
+                        self.lista_listo.remove(proceso)
+            
+        
+        # para este punto recorri toda la memoria y asigne si habia espacio el proceso que estaba en cola de listo.
+
+        #-----------------------procesar memoria-----------------------------------------------#
+        menor=400009
+        if self.puedo_procesar_otro : 
+            #si estra aca es porque puedo asignar un proceso  de los que esta en memoria a que trate el procesador segun el numero de orden
+            #EL NUMERO DE ORDEN SE LE ASIGNA A LOS PROCESOS CONFORME se fueron creando O una vez que salen de memoria porque termino su turno.
+            bandera=False
+            for particion in self.lista_memoria:
+
+                if particion.proceso_asignado!=False:
+                    
+                    if menor > particion.proceso_asignado.nro_orden:
+                        
+                        menor=particion.proceso_asignado.nro_orden
+                        memoria=particion
+                        bandera=True
+                else:
+                    #si para 3 veces por aca la memoria ya esta vacia y no hay nada que asignar 
+                    print("")
+            #cuando salga SI O SI eligio un proceos a tratar O la memoria esta vacia.
+            
+            if bandera:
+                memoria.procesando=True
+                print(f"procesando: {memoria.proceso_asignado.id}")
+
+
+
+
+
 
 
 
@@ -294,6 +379,9 @@ class session:
 
 
 session()
+
+
+
 
 
 
