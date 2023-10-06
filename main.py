@@ -139,6 +139,7 @@ class Simulador:
     #         print(f"Tiempo promedio de espera: {tiempo_promedio_espera}")
     #     else:
     #         print("\nNo se han completado procesos para calcular los tiempos promedio.")
+    # estoy probando git
 
 def main():
     if len(sys.argv) < 2:
