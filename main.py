@@ -1,134 +1,327 @@
 import sys
-from typing import List
+from enum import StrEnum
+from typing import List, Optional
+
 from tabulate import tabulate
 
+
+# Pasa de bits a kilobytes.
+def bits_a_kb(bits: int) -> int:
+    return bits // 8 // 1024
+
+
+# Pasa de kilobytes a bits.
+def kb_a_bits(kilobytes: int) -> int:
+    return kilobytes * 8 * 1024
+
+
+# Representa los estados de un proceso.
+class Estado(StrEnum):
+    NUEVO = "Nuevo"
+    LISTO = "Listo"
+    LISTOSUSPENDIDO = "ListoSuspendido"
+    EJECUTANDO = "Ejecutando"
+    TERMINADO = "Terminado"
+
+
+# Representa un programa activo a ejecutar en la CPU y alojar en memoria.
 class Proceso:
-    def __init__(self, id, memoria_necesaria, cuando_entra, cuanto_consume, nro_orden):
-        self.id = id
-        self.memoria_necesaria = memoria_necesaria
-        self.t_arribo = cuando_entra
-        self.t_irrup = cuanto_consume
-        self.nro_orden = nro_orden
+    def __init__(self, pid: int, t_arribo: int, t_irrup: int, memoria: int):
+        self.id = pid
+        self.memoria = memoria
+        self.t_arribo = t_arribo
+        self.t_irrup = t_irrup
+        self.estado: Estado = Estado.NUEVO
+        self.progreso: int = 0
         # self.tiempo_inicio_ejecucion = None
         # self.t_fin = None
         # self.t_espera = 0
         # self.t_retorno = 0
 
-    def __str__(self):
-        return f"Proceso {self.id} | Memoria: {self.memoria_necesaria} MB | Tiempo de Irrupción: {self.t_irrup} | Nro. de Orden: {self.nro_orden}"
+    # Retorna True si el proceso cumplió su tiempo de irrupción y por ende terminó su tarea.
+    def terminado(self) -> bool:
+        return self.t_irrup - self.progreso <= 0
 
+    # Retorna el porcentaje del tiempo de irrupción en el cual el proceso usó la CPU y progesó en su tarea.
+    def porcentaje_progreso(self) -> float:
+        return self.progreso / self.t_irrup * 100
+
+    def __repr__(self):
+        return f"Proceso({self.id}, {self.t_arribo}, {self.t_irrup}, {self.memoria}, {self.estado}, {self.progreso})"
+
+
+# Representa un conjunto de Procesos a ejecutar.
 class CargaTrabajo:
-    headers = ["PID", "tArribo", "tIrrupción", "Mem", "Orden"]
+    headers = ["PID", "TA", "TI", "Mem (kB)", "Estado", "Progreso (%)"]
 
     # Inicializa una CargaTrabajo a partir de un archivo CSV.
     def __init__(self, archivo: str):
         self.procesos: List[Proceso] = []
-        with open(archivo, "r") as f:
-            lineas = f.readlines()
-            for i, linea in enumerate(lineas, start=1):
+        with open(archivo, "r", encoding="utf-8") as f:
+            for linea in f.readlines():
                 [pid, ta, ti, mem] = linea.split(";")
-                self.procesos.append(Proceso(int(pid), int(ta), int(ti), int(mem), i))
+                self.procesos.append(Proceso(int(pid), int(ta), int(ti), kb_a_bits(int(mem))))
+        self.procesos.sort(key=lambda p: p.t_arribo)
 
     # Muestra la CargaTrabajo en formato tabla.
-    def __str__(self):
+    def __repr__(self):
         tabla = []
         for p in self.procesos:
-            tabla.append([p.id, p.t_arribo, p.t_irrup, p.memoria_necesaria, p.nro_orden])
+            tabla.append([p.id, p.t_arribo, p.t_irrup, bits_a_kb(p.memoria), p.estado, p.porcentaje_progreso()])
 
-        return tabulate(tabla, headers=self.headers, tablefmt="fancy_grid", stralign="right")
+        return tabulate(tabla, headers=self.headers, tablefmt="fancy_grid")
 
-#clase de particiones o memoria como le vean mejoro unu
+
+# Representa una partición fija de la memoria principal.
 class Particion:
-    def __init__(self, id, inicio, tamaño, id_proceso_asignado=None):
-        self.id = id
-        self.inicio = inicio
-        self.tamaño = tamaño
-        self.id_proceso_asignado = id_proceso_asignado
-        self.fragmentación_interna = 0
+    def __init__(self, dir_inicio: int, memoria: int, proceso: Optional[Proceso] = None):
+        self.dir_inicio = dir_inicio
+        self.memoria = memoria
+        self.proceso = proceso
+        self.presente: bool = True
 
+    # Retorna la fragmentación interna de la partición.
+    def frag_interna(self) -> int:
+        if not self.proceso:
+            return 0
+        return self.memoria - self.proceso.memoria
+
+    # Instancia otra Particion de su mismo tamaño.
+    def clonar(self):
+        return Particion(self.dir_inicio, self.memoria)
+
+    def __repr__(self):
+        return f"Particion({self.dir_inicio}, {self.memoria}, {self.presente}, {self.proceso})"
+
+
+# Es el orquestrador de la simulación que engloba al resto de clases.
 class Simulador:
-    def __init__(self, carga_trabajo):
-        self.particiones = [
-            #No tome en cuenta la particion destinado al SO ya que esa no variara ni entrara algun proceso
-            Particion(1, 0, 250),  # Partición grande
-            Particion(2, 0, 120),  # Partición mediana
-            Particion(3, 0, 60),   # Partición pequeña
-        ]
-        self.cola_procesos = carga_trabajo.procesos
-        self.procesando = None
-        #Esto lo añadi por las consignas pero no me anda tan bien
-        self.t_actual = 0
-        self.tt_retorno = 0
-        self.tt_espera = 0
-        self.cantidad_procesos = 0
+    # Inicializa un Simulador con una CargaTrabajo y una List[Particion] (memoria).
+    def __init__(self, carga_trabajo: CargaTrabajo):
+        # Estructuras de datos para los procesos.
+        self.carga_trabajo = carga_trabajo
+        self.cola_listos: List[Proceso] = []
+        self.ejecutando: Optional[Proceso] = None
 
-    ##Esto es para hacer las asignacions beft fit
-    def asignar_memoria(self, proceso):
-        bfit_particion = None
+        # Estructuras de datos para la memoria.
+        p1 = Particion(kb_a_bits(100), kb_a_bits(250))
+        p2 = Particion(p1.dir_inicio + p1.memoria, kb_a_bits(120))
+        p3 = Particion(p2.dir_inicio + p2.memoria, kb_a_bits(60))
+        self.mem_principal: List[Particion] = [p1, p2, p3]
+        self.mem_virtual: List[Particion] = []
+        self.max_multiprogramacion: int = 5
 
-        for particion in self.particiones:
-            if (
-                particion.id_proceso_asignado is None
-                and proceso.memoria_necesaria <= particion.tamaño
-            ):
-                if bfit_particion is None or particion.tamaño < bfit_particion.tamaño:
-                    bfit_particion = particion
+        # # Esto lo añadi por las consignas, pero no me anda tan bien
+        # self.t_actual = 0
+        # self.tt_retorno = 0
+        # self.tt_espera = 0
+        # self.cantidad_procesos = 0
+        self.t: int = 0
+        self.q: int = 0
 
-        if bfit_particion is not None:
-            bfit_particion.id_proceso_asignado = proceso.id
-            bfit_particion.fragmentación_interna = bfit_particion.tamaño - proceso.memoria_necesaria
-            proceso.tiempo_inicio_ejecucion = self.t_actual
-            self.procesando = proceso
-            self.cola_procesos.remove(proceso)
+    # # Asigna una partición de memoria a un proceso según el algoritmo best-fit.
+    # def asignar_memoria(self, proceso: Proceso):
+    #     mejor_part: Optional[Particion] = None
+    #
+    #     for part in self.mem_principal:
+    #         if part.proceso is None and proceso.memoria <= part.memoria:
+    #             if mejor_part is None or part.memoria < mejor_part.memoria:
+    #                 mejor_part = part
+    #
+    #     if mejor_part is not None:
+    #         mejor_part.proceso = proceso
+    #         print(proceso)
+    #         proceso.tiempo_inicio_ejecucion = self.t_actual
+    #         self.ejecutando = proceso
 
+    # Retorna True si el grado de multiprogramación alcanzó o superó el máximo (5).
+    # Eso sucede si hay 3 procesos en MP y 2 en MV, o 2 en MP y 3 en MV, o 1 y 4, etc.
+    def mem_virtual_disponible(self) -> bool:
+        return self.grado_multiprogramacion() < self.max_multiprogramacion
+
+    # Retorna la cantidad de procesos alojados en memoria (principal y virtual).
+    def grado_multiprogramacion(self) -> int:
+        particiones_ocupadas = 0
+        for part in self.mem_principal:
+            if part.proceso:
+                particiones_ocupadas += 1
+
+        return particiones_ocupadas + len(self.mem_virtual)
+
+    # Retorna los procesos nuevos de la carga de trabajo cuyos tiempos de arribo fueron alcanzados.
+    def procesos_nuevos(self) -> List[Proceso]:
+        return list(filter(lambda p: p.t_arribo <= self.t and p.estado == Estado.NUEVO, self.carga_trabajo.procesos))
+
+    # Busca una partición libre de memoria para el proceso según el algoritmo best-fit.
+    def encontrar_particion(self, proceso: Proceso) -> Optional[Particion]:
+        mejor_part: Optional[Particion] = None
+
+        for part in self.mem_principal:
+            if part.memoria >= proceso.memoria:
+                if mejor_part is None or part.memoria < mejor_part.memoria:
+                    mejor_part = part
+
+        return mejor_part
+
+    # Busca cualquier partición de memoria para el proceso según el algoritmo best-fit.
+    def encontrar_particion_libre(self, proceso: Proceso) -> Optional[Particion]:
+        mejor_part: Optional[Particion] = None
+
+        for part in self.mem_principal:
+            if part.proceso is None and part.memoria >= proceso.memoria:
+                if mejor_part is None or part.memoria < mejor_part.memoria:
+                    mejor_part = part
+
+        return mejor_part
+
+    # Retorna la partición que está asignada al proceso pasado por parámetro.
+    def encontrar_particion_proceso(self, proceso: Proceso) -> Optional[Particion]:
+        for part in self.mem_principal + self.mem_virtual:
+            if part.proceso == proceso:
+                return part
+
+    # Retorna la partición en mem principal que se debería reemplazar por la partición ausente.
+    def encontrar_particion_victima(self, particion: Particion) -> Optional[Particion]:
+        for part in self.mem_principal:
+            if part.dir_inicio == particion.dir_inicio:
+                return part
+
+    # Trae una partición ausente en memoria virtual a la memoria principal.
+    # Si se requiere un swap out, la partición víctima será la del mismo tamaño que la ausente.
+    def swap_in_particion(self, particion: Particion):
+        print(self.mem_virtual, particion)
+        self.mem_virtual.remove(particion)
+        particion.presente = True
+
+        victima = self.encontrar_particion_victima(particion)
+        print(victima)
+        if victima.proceso:
+            # Si hay un proceso en la partición víctima, se hace un swap out.
+            victima.proceso.estado = Estado.LISTOSUSPENDIDO
+            victima.presente = False
+            self.mem_virtual.append(victima)
+
+        index = self.mem_principal.index(victima)
+        print("Index", index, victima, particion)
+        self.mem_principal[index] = particion
+
+    # Asigna una partición de memoria (en MP o MV) al proceso, o lo rechaza si no hay disponibles.
+    def admitir_proceso(self, proceso: Proceso):
+        part = self.encontrar_particion_libre(proceso)
+        if part and part.presente:
+            # Admitir proceso listo a memoria principal
+            part.proceso = proceso
+            proceso.estado = Estado.LISTO
+            self.cola_listos.append(proceso)
+            return
+
+        if self.mem_virtual_disponible():
+            # Admitir proceso suspendido a memoria virtual
+            part = self.encontrar_particion(proceso).clonar()
+            part.presente = False
+            self.mem_virtual.append(part)
+            part.proceso = proceso
+            proceso.estado = Estado.LISTOSUSPENDIDO
+            self.cola_listos.append(proceso)
+        else:
+            # Rechazar proceso
+            print(f"Proceso {proceso.id} rechazado por falta de recursos")
+
+    # Termina el proceso en ejecución en la CPU y libera su partición de memoria asignada.
+    def terminar_proceso(self):
+        part = self.encontrar_particion_proceso(self.ejecutando)
+        part.proceso = None
+        self.ejecutando.estado = Estado.TERMINADO
+        self.ejecutando = None
+        self.q = 0
+
+    # Expropia de la CPU al proceso en ejecución y lo envía al final de la cola de listos.
+    def expropiar_proceso(self):
+        self.cola_listos.append(self.ejecutando)
+        self.ejecutando.estado = Estado.LISTO
+        self.ejecutando = None
+
+    # Activa un proceso trayendolo a memoria principal.
+    def activar_proceso(self, proceso: Proceso):
+        part = self.encontrar_particion_proceso(proceso)
+        if not part.presente:
+            self.swap_in_particion(part)
+
+    # Asigna la CPU al siguiente proceso de la cola de listos, y lo activa si está en mem virtual.
+    def asignar_cpu(self):
+        if 0 == len(self.cola_listos):
+            self.ejecutando = None
+        else:
+            self.ejecutando = self.cola_listos[0]
+            self.activar_proceso(self.ejecutando)
+            self.cola_listos.remove(self.ejecutando)
+            self.ejecutando.estado = Estado.EJECUTANDO
+
+    # Planifica el uso de la CPU usando un Round Robin con quantum = 2.
     def planificar_cpu(self):
-        if self.procesando is not None:
-            self.procesando.t_irrup -= 1
-            if self.procesando.t_irrup <= 0:
-                self.procesando.t_fin = (
-                    self.t_actual + 1
-                )
-                self.tt_retorno += (
-                    self.procesando.t_fin
-                    - self.procesando.t_arribo
-                )
-                self.tt_espera += (
-                    self.procesando.tiempo_inicio_ejecucion
-                    - self.procesando.t_arribo
-                )
-                self.cantidad_procesos += 1
-                self.procesando = None
+        if self.ejecutando:
+            self.ejecutando.progreso += 1
+            if self.ejecutando.terminado():
+                self.terminar_proceso()
+                self.asignar_cpu()
+            elif self.q == 2:
+                self.expropiar_proceso()
+                self.asignar_cpu()
+        else:
+            self.asignar_cpu()
 
+    # def planificar_cpu(self):
+    #     if self.ejecutando is not None:
+    #         self.ejecutando.t_irrup -= 1
+    #         if self.ejecutando.t_irrup <= 0:
+    #             # self.ejecutando.t_fin = (
+    #             #         self.t_actual + 1
+    #             # )
+    #             # self.tt_retorno += (
+    #             #         self.ejecutando.t_fin
+    #             #         - self.ejecutando.t_arribo
+    #             # )
+    #             # self.tt_espera += (
+    #             #         self.ejecutando.tiempo_inicio_ejecucion
+    #             #         - self.ejecutando.t_arribo
+    #             # )
+    #             self.cantidad_procesos += 1
+    #             self.ejecutando = None
+
+    # Imprime el estado del simulador.
     def mostrar_estado(self):
-         # Estado del procesador
-        procesador_data = [["Proceso en ejecución", "No hay proceso en ejecución"]]
-        if self.procesando is not None:
-            procesador_data[0][1] = f"Proceso {self.procesando.id}"
-
-        # Tabla de particiones de memoria
-        memoria_data = []
-        for particion in self.particiones:
-            memoria_data.append([particion.id, particion.inicio, particion.tamaño,
-                                particion.id_proceso_asignado, particion.fragmentación_interna])
-
-        # Estado de la cola de procesos listos
-        cola_procesos_data = []
-        for proceso in self.cola_procesos:
-            cola_procesos_data.append([proceso.id, proceso.t_arribo,
-                                       proceso.t_irrup, proceso.memoria_necesaria, proceso.nro_orden])
-
-        # Mostrar tablas usando tabulate
+        tabla_procesador = [["Proceso en ejecución", "No hay proceso en ejecución"]]
+        if self.ejecutando:
+            tabla_procesador[0][1] = f"Proceso {self.ejecutando.id}"
         print("\nEstado del procesador:")
-        print(tabulate(procesador_data, tablefmt="fancy_grid"))
+        print(tabulate(tabla_procesador, tablefmt="fancy_grid"))
 
+        tabla_memoria = []
+        for pos, part in enumerate(self.mem_principal + self.mem_virtual, start=1):
+            mem_en_uso = part.proceso.memoria if part.proceso else 0
+            pid = part.proceso.id if part.proceso else "-"
+            presente = "Sí" if part.presente else "No"
+            tabla_memoria.append([pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente])
         print("\nTabla de particiones de memoria:")
-        print(tabulate(memoria_data, headers=["NParticion", "Inicio", "Tamaño", "Asignado a proceso", "Fragmentación Interna"],
-                        tablefmt="fancy_grid"))
+        print(tabulate(tabla_memoria,
+                       headers=["Partición", "Dir. Inicio", "Tamaño", "Mem. en uso", "Frag. Interna", "Proceso",
+                                "Presente"],
+                       tablefmt="fancy_grid"))
 
-        print("\nEstado de la cola de procesos listos:")
-        print(tabulate(cola_procesos_data, headers=["PID", "tArribo", "tIrrupción", "Mem", "Orden"],
-                        tablefmt="fancy_grid"))
-    #por alguna razon no llegaba a esto , no cargo mas de 3 procesos 
+        # # Estado de la cola de procesos listos
+        # tabla_procesos_listos = []
+        # for proceso in self.carga_trabajo.procesos:
+        #     tabla_procesos_listos.append([proceso.id, proceso.t_arribo,
+        #                                   proceso.t_irrup, proceso.memoria])
+        # print("\nEstado de la cola de procesos listos:")
+        # print(tabulate(tabla_procesos_listos, headers=["PID", "tArribo", "tIrrupción", "Mem", "Orden"],
+        #                tablefmt="fancy_grid"))
+
+        print("\n Carga de trabajo:")
+        print(self.carga_trabajo)
+        print(f"t = {self.t}; quantum = {self.q}; grado de multiprogramación = {self.grado_multiprogramacion()}")
+
+    # por alguna razon no llegaba a esto , no cargo mas de 3 procesos
     # def finalizar_simulacion(self):
     #     if self.cantidad_procesos > 0:
     #         tiempo_promedio_retorno = self.tt_retorno / self.cantidad_procesos
@@ -140,27 +333,49 @@ class Simulador:
     #     else:
     #         print("\nNo se han completado procesos para calcular los tiempos promedio.")
 
+
+def input_avanzar():
+    try:
+        inp = input("Presione Enter para avanzar o q + Enter para salir...")
+        if inp == "q":
+            exit(0)
+    except EOFError:
+        exit(0)
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Falta ingresar el nombre del archivo con el workload")
+        print("Falta el parámetro del archivo con el workload.")
         exit(1)
 
-    carga = CargaTrabajo(sys.argv[1])
-    simulador = Simulador(carga)
+    carga_trabajo = CargaTrabajo(sys.argv[1])
+    simulador = Simulador(carga_trabajo)
 
     print("Carga de trabajo:")
-    print(carga)
+    print(carga_trabajo)
+    try:
+        print("Presione q + Enter para terminar el programa.")
+        inp = input("Presione Enter para comenzar la simulación...")
+        if inp == "q":
+            exit(0)
+    except EOFError:
+        exit(0)
 
-    input("Presiona Enter para comenzar la simulación...")
+    for nuevo in simulador.procesos_nuevos():
+        simulador.admitir_proceso(nuevo)
+    simulador.asignar_cpu()
+    simulador.mostrar_estado()
+    input_avanzar()
 
-    while simulador.cola_procesos or simulador.procesando:
-        simulador.asignar_memoria(simulador.cola_procesos[0] if simulador.cola_procesos else None)
+    while simulador.carga_trabajo or simulador.ejecutando:
+        simulador.t += 1
+        simulador.q = simulador.q % 2 + 1
+        for nuevo in simulador.procesos_nuevos():
+            simulador.admitir_proceso(nuevo)
         simulador.planificar_cpu()
+
         simulador.mostrar_estado()
-        input("Presiona Enter para avanzar al siguiente paso...")
-
-    # simulador.finalizar_simulacion()
-
+        input_avanzar()
 
 
 if __name__ == "__main__":
