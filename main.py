@@ -35,7 +35,7 @@ def main():
 
     while simulador.carga_trabajo or simulador.ejecutando:
         simulador.t += 1
-        simulador.q = simulador.q % 2 + 1
+        simulador.quantum = simulador.quantum % 2 + 1
         for nuevo in simulador.procesos_nuevos():
             simulador.admitir_proceso(nuevo)
         simulador.planificar_cpu()

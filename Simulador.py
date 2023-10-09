@@ -28,7 +28,7 @@ class Simulador:
         self.max_multiprogramacion: int = 5
 
         self.t: int = 0
-        self.q: int = 0
+        self.quantum: int = 0
 
     def grado_multiprogramacion(self) -> int:
         """Retorna la cantidad de procesos actualmente alojados en memoria (principal y virtual)."""
@@ -126,7 +126,7 @@ class Simulador:
         part.proceso = None
         self.ejecutando.estado = Estado.TERMINADO
         self.ejecutando = None
-        self.q = 0
+        self.quantum = 0
 
     def expropiar_proceso(self):
         """Expropia al proceso en ejecución de la CPU y lo envía al final de la cola de listos."""
@@ -157,7 +157,7 @@ class Simulador:
             if self.ejecutando.terminado():
                 self.terminar_proceso()
                 self.asignar_cpu()
-            elif self.q == 2:
+            elif self.quantum == 2:
                 self.expropiar_proceso()
                 self.asignar_cpu()
         else:
@@ -165,7 +165,8 @@ class Simulador:
 
     def mostrar_estado(self):
         """Imprime el estado del simulador."""
-        tabla_procesador = [["Proceso en ejecución", "No hay proceso en ejecución"]]
+        tabla_procesador = [
+            ["Proceso en ejecución", "No hay proceso en ejecución"]]
         if self.ejecutando:
             tabla_procesador[0][1] = f"Proceso {self.ejecutando.id}"
         print("\nEstado del procesador:")
@@ -176,7 +177,8 @@ class Simulador:
             mem_en_uso = part.proceso.memoria if part.proceso else 0
             pid = part.proceso.id if part.proceso else "-"
             presente = "Sí" if part.presente else "No"
-            tabla_memoria.append([pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente])
+            tabla_memoria.append(
+                [pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente])
         print("\nTabla de particiones de memoria:")
         print(tabulate(tabla_memoria,
                        headers=["Partición", "Dir. Inicio", "Tamaño", "Mem. en uso", "Frag. Interna", "Proceso",
@@ -185,4 +187,5 @@ class Simulador:
 
         print("\n Carga de trabajo:")
         print(self.carga_trabajo)
-        print(f"t = {self.t}; quantum = {self.q}; grado de multiprogramación = {self.grado_multiprogramacion()}")
+        print(
+            f"t = {self.t}; quantum = {self.quantum}; grado de multiprogramación = {self.grado_multiprogramacion()}")
