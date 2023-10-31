@@ -20,6 +20,9 @@ class Proceso:
         self.t_irrup = t_irrup
         self.estado: Estado = Estado.NUEVO
         self.progreso: int = 0
+        self.t_retorno: int = 0 #Tiempo que demora en pasar a estado TERMINADO
+        self.t_espera: int = 0
+        self.t_auxiliar : int = 0 #Este tiempo auxiliar se usa para calcular el tiempo que NO PASA en estado EJECUTANDO
 
     def terminado(self) -> bool:
         """Retorna True si el proceso cumplió su tiempo de irrupción y por ende terminó su tarea."""

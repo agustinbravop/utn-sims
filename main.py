@@ -41,7 +41,9 @@ def main():
         simulador.planificar_cpu()
 
         simulador.mostrar_estado()
+        simulador.estadistico()
         input_avanzar("Presione Enter para avanzar o q + Enter para salir...")
+    
 
 
 if __name__ == "__main__":

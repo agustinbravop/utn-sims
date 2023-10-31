@@ -106,6 +106,8 @@ class Simulador:
             part.proceso = proceso
             proceso.estado = Estado.LISTO
             self.cola_listos.append(proceso)
+            proceso.t_auxiliar = self.t
+            proceso.t_retorno = self.t
             return
 
         if self.mem_virtual_disponible():
@@ -116,6 +118,8 @@ class Simulador:
             part.proceso = proceso
             proceso.estado = Estado.LISTOSUSPENDIDO
             self.cola_listos.append(proceso)
+            proceso.t_auxiliar = self.t
+            proceso.t_retorno = self.t
         else:
             # Rechazar proceso
             print(f"Proceso {proceso.id} rechazado por falta de recursos")
@@ -124,6 +128,7 @@ class Simulador:
         """Termina el proceso en ejecución en la CPU y libera su partición de memoria asignada."""
         part = self.encontrar_particion_proceso(self.ejecutando)
         part.proceso = None
+        if(self.ejecutando): self.ejecutando.t_retorno = self.t - self.ejecutando.t_retorno
         self.ejecutando.estado = Estado.TERMINADO
         self.ejecutando = None
         self.quantum = 0
@@ -132,6 +137,7 @@ class Simulador:
         """Expropia al proceso en ejecución de la CPU y lo envía al final de la cola de listos."""
         self.cola_listos.append(self.ejecutando)
         self.ejecutando.estado = Estado.LISTO
+        self.ejecutando.t_auxiliar = self.t
         self.ejecutando = None
 
     def activar_proceso(self, proceso: Proceso):
@@ -149,6 +155,8 @@ class Simulador:
             self.activar_proceso(self.ejecutando)
             self.cola_listos.remove(self.ejecutando)
             self.ejecutando.estado = Estado.EJECUTANDO
+            self.ejecutando.t_espera += self.t - self.ejecutando.t_auxiliar
+            self.ejecutando.t_auxiliar = self.t
 
     def planificar_cpu(self):
         """Planifica el uso de la CPU usando un Round Robin con quantum = 2."""
@@ -181,11 +189,15 @@ class Simulador:
                 [pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente])
         print("\nTabla de particiones de memoria:")
         print(tabulate(tabla_memoria,
-                       headers=["Partición", "Dir. Inicio", "Tamaño", "Mem. en uso", "Frag. Interna", "Proceso",
+                        headers=["Partición", "Dir. Inicio", "Tamaño", "Mem. en uso", "Frag. Interna", "Proceso",
                                 "Presente"],
-                       tablefmt="fancy_grid"))
+                        tablefmt="fancy_grid"))
 
         print("\n Carga de trabajo:")
         print(self.carga_trabajo)
         print(
             f"t = {self.t}; quantum = {self.quantum}; grado de multiprogramación = {self.grado_multiprogramacion()}")
+
+    def estadistico(self):
+        for p in self.carga_trabajo.procesos:
+            print(f"El tiempo de retorno es: {p.t_retorno}; El tiempo de espera es: {p.t_espera}")
