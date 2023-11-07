@@ -41,3 +41,6 @@ Decisiones de diseño del grupo:
   los listos/suspendidos estén en memoria principal cuando les llegue su turno.
 - Si un proceso desea ser admitido una vez alcanzado el grado de multiprogramación máximo (5), es rechazado pero se lo
   vuelve a intentar admitir en cada delta de tiempo hasta que otro proceso termine.
+- Creamos un estado especial `DENEGADO` para los procesos que requieren una cantidad de memoria mayor al tamaño de la
+  partición de memoria más grande, por lo que jamás podría ser admitido. Se lo envía al estado `DENEGADO` para siempre.
+   
