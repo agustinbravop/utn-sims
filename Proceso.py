@@ -4,10 +4,17 @@ from enum import StrEnum
 class Estado(StrEnum):
     """Representa los estados de un proceso."""
     NUEVO = "Nuevo"
+    """Un proceso nuevo todavía no arribó o arribó pero todavía no fue admitido."""
     LISTO = "Listo"
+    """Un proceso listo está en la cola de listos y en memoria principal, esperando la CPU."""
     LISTOSUSPENDIDO = "ListoSuspendido"
+    """Un proceso listo/suspendido está en la cola de listos pero en memoria virtual."""
     EJECUTANDO = "Ejecutando"
+    """Un proceso está ejecutando si tiene asignada la CPU."""
     TERMINADO = "Terminado"
+    """Un proceso está terminado si cumplió su tiempo de irrupción completo en la CPU."""
+    DENEGADO = "Denegado"
+    """Un proceso es denegado si solicita una cantidad de memoria mayor al tamaño de la partición más grande."""
 
 
 class Proceso:
@@ -19,7 +26,9 @@ class Proceso:
         self.t_arribo = t_arribo
         self.t_irrup = t_irrup
         self.estado: Estado = Estado.NUEVO
-        self.progreso: int = 0
+        self.progreso: int = 0  # Tiempo que el proceso estuvo ejecutandose (en EJECUTANDO)
+        self.t_retorno: int = 0  # Tiempo que demora el proceso desde cargado a terminado (en llegar a TERMINADO)
+        self.t_espera: int = 0  # Tiempo que el proceso pasó en la cola de listos (en LISTO o LISTOSUSPENDIDO)
 
     def terminado(self) -> bool:
         """Retorna True si el proceso cumplió su tiempo de irrupción y por ende terminó su tarea."""
@@ -28,6 +37,16 @@ class Proceso:
     def porcentaje_progreso(self) -> float:
         """Retorna el porcentaje del tiempo de irrupción durante el cual el proceso se ejecutó en la CPU."""
         return self.progreso / self.t_irrup * 100
+
+    def tick_ejecutando(self):
+        """Avanza el progreso del proceso en ejecución en cada instante de tiempo o pulso de clock."""
+        self.progreso += 1
+        self.t_retorno += 1
+
+    def tick_listo(self):
+        """Informa al proceso en cada instante de tiempo que está en cola de listos (y listos/suspendidos)."""
+        self.t_espera += 1
+        self.t_retorno += 1
 
     def __repr__(self):
         return f"Proceso({self.id}, {self.t_arribo}, {self.t_irrup}, {self.memoria}, {self.estado}, {self.progreso})"

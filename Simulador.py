@@ -30,6 +30,10 @@ class Simulador:
         self.t: int = 0
         self.quantum: int = 0
 
+    def terminado(self) -> bool:
+        """Retorna `True` si todos los procesos de la carga de trabajo están en TERMINADO o DENEGADO."""
+        return all(p.estado == Estado.TERMINADO or p.estado == Estado.DENEGADO for p in self.carga_trabajo.procesos)
+
     def grado_multiprogramacion(self) -> int:
         """Retorna la cantidad de procesos actualmente alojados en memoria (principal y virtual)."""
         particiones_ocupadas = 0
@@ -109,15 +113,23 @@ class Simulador:
             return
 
         if self.mem_virtual_disponible():
-            # Admitir proceso suspendido a memoria virtual
-            part = self.encontrar_particion(proceso).clonar()
+            part_ocupada = self.encontrar_particion(proceso)
+
+            if part_ocupada is None:
+                # El proceso no entra en ninguna partición, se lo denega para siempre.
+                print(f"Proceso {proceso.id} denegado, su tamaño no entra en ninguna partición")
+                proceso.estado = Estado.DENEGADO
+                return
+
+            # Admitir proceso listo pero suspendido a memoria virtual
+            part = part_ocupada.clonar()
             part.presente = False
             self.mem_virtual.append(part)
             part.proceso = proceso
             proceso.estado = Estado.LISTOSUSPENDIDO
             self.cola_listos.append(proceso)
         else:
-            # Rechazar proceso
+            # Rechazar proceso, volverá a intentar en el siguiente instante de tiempo
             print(f"Proceso {proceso.id} rechazado por falta de recursos")
 
     def terminar_proceso(self):
@@ -152,8 +164,14 @@ class Simulador:
 
     def planificar_cpu(self):
         """Planifica el uso de la CPU usando un Round Robin con quantum = 2."""
+        # Se notifica a los procesos en LISTO y LISTOSUSPENDIDO que siguen esperando la CPU.
+        for proceso in self.cola_listos:
+            proceso.tick_listo()
+
         if self.ejecutando:
-            self.ejecutando.progreso += 1
+            # Se notifica al proceso en EJECUTANDO que avanzó otro instante de tiempo.
+            self.ejecutando.tick_ejecutando()
+
             if self.ejecutando.terminado():
                 self.terminar_proceso()
                 self.asignar_cpu()
@@ -189,3 +207,18 @@ class Simulador:
         print(self.carga_trabajo)
         print(
             f"t = {self.t}; quantum = {self.quantum}; grado de multiprogramación = {self.grado_multiprogramacion()}")
+
+    def mostrar_reporte_final(self):
+        """Imprime un reporte estadístico de la simulación."""
+        tabla = []
+        retorno_total = 0.0
+        espera_total = 0.0
+        for p in self.carga_trabajo.procesos:
+            tabla.append([p.id, p.t_arribo, p.t_irrup, p.t_espera, p.t_retorno])
+            espera_total += p.t_espera
+            retorno_total += p.t_retorno
+
+        print("\n Reporte estadístico final:")
+        print(tabulate(tabla, headers=["Proceso", "TA", "TI", "T. Espera", "T. Retorno"], tablefmt="fancy_grid"))
+        print("Tiempo de espera promedio:", espera_total / len(self.carga_trabajo.procesos))
+        print("Tiempo de retorno promedio:", retorno_total / len(self.carga_trabajo.procesos))

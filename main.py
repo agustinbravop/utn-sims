@@ -33,7 +33,7 @@ def main():
     simulador.mostrar_estado()
     input_avanzar("Presione Enter para avanzar o q + Enter para salir...")
 
-    while simulador.carga_trabajo or simulador.ejecutando:
+    while not simulador.terminado():
         simulador.t += 1
         simulador.quantum = simulador.quantum % 2 + 1
         for nuevo in simulador.procesos_nuevos():
@@ -42,6 +42,9 @@ def main():
 
         simulador.mostrar_estado()
         input_avanzar("Presione Enter para avanzar o q + Enter para salir...")
+
+    print("\n================ ¡Simulación terminada! ================")
+    simulador.mostrar_reporte_final()
 
 
 if __name__ == "__main__":
