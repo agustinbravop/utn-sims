@@ -5,7 +5,7 @@ from tabulate import tabulate
 from CargaTrabajo import CargaTrabajo
 from Particion import Particion
 from Proceso import Estado, Proceso
-from utils import kb_a_bits
+from utils import kb_a_bits, colorear_lista, colorear
 
 
 class Simulador:
@@ -31,8 +31,8 @@ class Simulador:
         self.quantum: int = 0
 
     def terminado(self) -> bool:
-        """Retorna `True` si todos los procesos de la carga de trabajo están en TERMINADO o DENEGADO."""
-        return all(p.estado == Estado.TERMINADO or p.estado == Estado.DENEGADO for p in self.carga_trabajo.procesos)
+        """Si retorna `True` es porque la simulación terminó."""
+        return self.carga_trabajo.terminada()
 
     def grado_multiprogramacion(self) -> int:
         """Retorna la cantidad de procesos actualmente alojados en memoria (principal y virtual)."""
@@ -183,30 +183,36 @@ class Simulador:
 
     def mostrar_estado(self):
         """Imprime el estado del simulador."""
-        tabla_procesador = [
-            ["Proceso en ejecución", "No hay proceso en ejecución"]]
+        # Imprimir estado del procesador y de la cola de listos
+        fila = ""
         if self.ejecutando:
-            tabla_procesador[0][1] = f"Proceso {self.ejecutando.id}"
-        print("\nEstado del procesador:")
-        print(tabulate(tabla_procesador, tablefmt="fancy_grid"))
+            fila += f"[CPU: {colorear(f"P{self.ejecutando.id}", self.ejecutando.estado)}]"
+        if len(self.cola_listos) != 0:
+            fila += " <-- "
+        fila += " <-- ".join([colorear(f"P{p.id}", p.estado) for p in self.cola_listos])
 
+        if fila == "":
+            fila = "(vacía)"
+        print(f"\nEstado del procesador y de la cola de listos: {fila}\n (t = {self.t}; quantum = {self.quantum})")
+
+        # Imprimir tabla de particiones de memoria
         tabla_memoria = []
         for pos, part in enumerate(self.mem_principal + self.mem_virtual, start=1):
             mem_en_uso = part.proceso.memoria if part.proceso else 0
             pid = part.proceso.id if part.proceso else "-"
             presente = "Sí" if part.presente else "No"
             tabla_memoria.append(
-                [pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente])
-        print("\nTabla de particiones de memoria:")
+                colorear_lista([pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente],
+                               part.proceso.estado if part.proceso else Estado.NUEVO))
+        print(f"\nTabla de particiones de memoria: (grado de multiprogramación = {self.grado_multiprogramacion()})")
         print(tabulate(tabla_memoria,
-                       headers=["Partición", "Dir. Inicio", "Tamaño", "Mem. en uso", "Frag. Interna", "Proceso",
+                       headers=["Partición", "Dir. Inicio", "Tamaño (bits)", "Mem. en uso", "Frag. Interna", "Proceso",
                                 "Presente"],
                        tablefmt="fancy_grid"))
 
+        # Imprimir carga de trabajo
         print("\n Carga de trabajo:")
         print(self.carga_trabajo)
-        print(
-            f"t = {self.t}; quantum = {self.quantum}; grado de multiprogramación = {self.grado_multiprogramacion()}")
 
     def mostrar_reporte_final(self):
         """Imprime un reporte estadístico de la simulación."""

@@ -1,20 +1,33 @@
 from enum import StrEnum
 
+from colorama import Fore
+
 
 class Estado(StrEnum):
     """Representa los estados de un proceso."""
     NUEVO = "Nuevo"
     """Un proceso nuevo todavía no arribó o arribó pero todavía no fue admitido."""
-    LISTO = "Listo"
-    """Un proceso listo está en la cola de listos y en memoria principal, esperando la CPU."""
     LISTOSUSPENDIDO = "ListoSuspendido"
     """Un proceso listo/suspendido está en la cola de listos pero en memoria virtual."""
+    LISTO = "Listo"
+    """Un proceso listo está en la cola de listos y en memoria principal, esperando la CPU."""
     EJECUTANDO = "Ejecutando"
     """Un proceso está ejecutando si tiene asignada la CPU."""
     TERMINADO = "Terminado"
     """Un proceso está terminado si cumplió su tiempo de irrupción completo en la CPU."""
     DENEGADO = "Denegado"
     """Un proceso es denegado si solicita una cantidad de memoria mayor al tamaño de la partición más grande."""
+
+
+COLORES = {
+    Estado.NUEVO: Fore.LIGHTBLACK_EX,
+    Estado.LISTO: Fore.WHITE,
+    Estado.LISTOSUSPENDIDO: Fore.YELLOW,
+    Estado.EJECUTANDO: Fore.CYAN,
+    Estado.TERMINADO: Fore.GREEN,
+    Estado.DENEGADO: Fore.RED,
+}
+"""Asigna a cada `Estado` de un `Proceso` un color con el cual imprimirlo por consola."""
 
 
 class Proceso:
