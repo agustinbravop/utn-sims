@@ -5,7 +5,7 @@ from tabulate import tabulate
 from CargaTrabajo import CargaTrabajo
 from Particion import Particion
 from Proceso import Estado, Proceso
-from utils import kb_a_bits, colorear_lista, colorear
+from utils import kb_a_bytes, colorear_lista, colorear
 
 
 class Simulador:
@@ -20,9 +20,9 @@ class Simulador:
         self.ejecutando: Optional[Proceso] = None
 
         # Estructuras de datos para la memoria.
-        p1 = Particion(kb_a_bits(100), kb_a_bits(250))
-        p2 = Particion(p1.dir_inicio + p1.memoria, kb_a_bits(120))
-        p3 = Particion(p2.dir_inicio + p2.memoria, kb_a_bits(60))
+        p1 = Particion(kb_a_bytes(100), kb_a_bytes(250))
+        p2 = Particion(p1.dir_inicio + p1.memoria, kb_a_bytes(120))
+        p3 = Particion(p2.dir_inicio + p2.memoria, kb_a_bytes(60))
         self.mem_principal: List[Particion] = [p1, p2, p3]
         self.mem_virtual: List[Particion] = []
         self.max_multiprogramacion: int = 5
@@ -199,15 +199,16 @@ class Simulador:
         tabla_memoria = []
         for pos, part in enumerate(self.mem_principal + self.mem_virtual, start=1):
             mem_en_uso = part.proceso.memoria if part.proceso else 0
-            pid = part.proceso.id if part.proceso else "-"
+            pid = f"P{part.proceso.id}" if part.proceso else "-"
             presente = "Sí" if part.presente else "No"
             tabla_memoria.append(
-                colorear_lista([pos, presente, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid],
-                               part.proceso.estado if part.proceso else Estado.NUEVO))
-        print(f"\nTabla de memoria: (grado de multiprogramación = {self.grado_multiprogramacion()})")
+                colorear_lista(
+                    [pos, presente, pid, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna()],
+                    part.proceso.estado if part.proceso else Estado.NUEVO))
+        print(f"\nTabla de memoria: (valores en bytes) (grado de multiprogramación = {self.grado_multiprogramacion()})")
         print(tabulate(tabla_memoria,
-                       headers=["Partición", "Presente", "Dir. Inicio", "Tamaño (bits)", "Mem. en uso", "Frag. Interna",
-                                "Proceso"],
+                       headers=["Partición", "Presente", "Proceso", "Dir. Inicio", "Tamaño", "Mem. en uso",
+                                "Frag. Interna"],
                        tablefmt="fancy_grid"))
 
         # Imprimir carga de trabajo

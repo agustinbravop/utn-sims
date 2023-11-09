@@ -3,7 +3,7 @@ from typing import List
 from tabulate import tabulate
 
 from Proceso import Proceso, Estado
-from utils import kb_a_bits, bits_a_kb, colorear_lista
+from utils import kb_a_bytes, bytes_a_kb, colorear_lista
 
 
 class CargaTrabajo:
@@ -20,7 +20,7 @@ class CargaTrabajo:
         with open(archivo, "r", encoding="utf-8") as f:
             for linea in f.readlines():
                 [pid, ta, ti, mem] = linea.split(";")
-                self.procesos.append(Proceso(int(pid), int(ta), int(ti), kb_a_bits(int(mem))))
+                self.procesos.append(Proceso(int(pid), int(ta), int(ti), kb_a_bytes(int(mem))))
         self.procesos.sort(key=lambda p: p.t_arribo)
 
     def __repr__(self):
@@ -28,7 +28,7 @@ class CargaTrabajo:
         tabla = []
         for p in self.procesos:
             tabla.append(colorear_lista(
-                [p.id, p.t_arribo, p.t_irrup, bits_a_kb(p.memoria), p.estado,
+                [p.id, p.t_arribo, p.t_irrup, bytes_a_kb(p.memoria), p.estado,
                  progreso(p.porcentaje_progreso())], p.estado))
 
         return tabulate(tabla, headers=self.headers, tablefmt="fancy_grid")
