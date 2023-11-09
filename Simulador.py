@@ -202,12 +202,12 @@ class Simulador:
             pid = part.proceso.id if part.proceso else "-"
             presente = "Sí" if part.presente else "No"
             tabla_memoria.append(
-                colorear_lista([pos, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid, presente],
+                colorear_lista([pos, presente, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna(), pid],
                                part.proceso.estado if part.proceso else Estado.NUEVO))
-        print(f"\nTabla de particiones de memoria: (grado de multiprogramación = {self.grado_multiprogramacion()})")
+        print(f"\nTabla de memoria: (grado de multiprogramación = {self.grado_multiprogramacion()})")
         print(tabulate(tabla_memoria,
-                       headers=["Partición", "Dir. Inicio", "Tamaño (bits)", "Mem. en uso", "Frag. Interna", "Proceso",
-                                "Presente"],
+                       headers=["Partición", "Presente", "Dir. Inicio", "Tamaño (bits)", "Mem. en uso", "Frag. Interna",
+                                "Proceso"],
                        tablefmt="fancy_grid"))
 
         # Imprimir carga de trabajo

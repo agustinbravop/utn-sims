@@ -29,6 +29,12 @@ class CargaTrabajo:
         for p in self.procesos:
             tabla.append(colorear_lista(
                 [p.id, p.t_arribo, p.t_irrup, bits_a_kb(p.memoria), p.estado,
-                 p.porcentaje_progreso()], p.estado))
+                 progreso(p.porcentaje_progreso())], p.estado))
 
         return tabulate(tabla, headers=self.headers, tablefmt="fancy_grid")
+
+
+def progreso(porcentaje: float) -> str:
+    """Muestra el progreso de un `Proceso` mediante una barra de progeso."""
+    cantidad = int((15 * porcentaje / 100))
+    return f"{"█" * cantidad}{"_" * (15 - cantidad)} {round(porcentaje, 1)}"
