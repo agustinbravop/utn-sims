@@ -37,4 +37,4 @@ class CargaTrabajo:
 def progreso(porcentaje: float) -> str:
     """Muestra el progreso de un `Proceso` mediante una barra de progeso."""
     cantidad = int((15 * porcentaje / 100))
-    return f"{"█" * cantidad}{"_" * (15 - cantidad)} {round(porcentaje, 1)}"
+    return f"{'█' * cantidad}{'_' * (15 - cantidad)} {round(porcentaje, 1)}"

@@ -186,7 +186,7 @@ class Simulador:
         # Imprimir estado del procesador y de la cola de listos
         fila = ""
         if self.ejecutando:
-            fila += f"[CPU: {colorear(f"P{self.ejecutando.id}", self.ejecutando.estado)}]"
+            fila += f"[CPU: {colorear(f'P{self.ejecutando.id}', self.ejecutando.estado)}]"
         if len(self.cola_listos) != 0:
             fila += " <-- "
         fila += " <-- ".join([colorear(f"P{p.id}", p.estado) for p in self.cola_listos])
