@@ -35,13 +35,10 @@ class Simulador:
         return self.carga_trabajo.terminada()
 
     def grado_multiprogramacion(self) -> int:
-        """Retorna la cantidad de procesos actualmente alojados en memoria (principal y virtual)."""
-        particiones_ocupadas = 0
-        for part in self.mem_principal:
-            if part.proceso:
-                particiones_ocupadas += 1
-
-        return particiones_ocupadas + len(self.mem_virtual)
+        """Retorna la cantidad de procesos alojados en memoria principal y virtual 
+        (mas los listos y suspendidos pero sin partición asignada)."""
+        ejecutando = 1 if self.ejecutando else 0
+        return ejecutando + len(self.cola_listos)
 
     def mem_virtual_disponible(self) -> bool:
         """ Retorna True si el grado de multiprogramación alcanzó o superó el máximo (5).
@@ -121,15 +118,11 @@ class Simulador:
                 proceso.estado = Estado.DENEGADO
                 return
 
-            # Admitir proceso listo pero suspendido a memoria virtual
-            part = part_ocupada.clonar()
-            part.presente = False
-            self.mem_virtual.append(part)
-            part.proceso = proceso
+            # Admitir proceso listo pero suspendido sin partición asignada.
             proceso.estado = Estado.LISTOSUSPENDIDO
             self.cola_listos.append(proceso)
         else:
-            # Rechazar proceso, volverá a intentar en el siguiente instante de tiempo
+            # Rechazar proceso, volverá a intentar en el siguiente instante de tiempo.
             print(f"Proceso {proceso.id} rechazado por falta de recursos")
 
     def terminar_proceso(self):
@@ -147,9 +140,28 @@ class Simulador:
         self.ejecutando = None
 
     def activar_proceso(self, proceso: Proceso):
-        """Activa un proceso trayéndolo a memoria principal."""
+        """Activa un proceso para que pueda usar la CPU."""
         part = self.encontrar_particion_proceso(proceso)
+        if part is None:
+            # Proceso estaba suspendido sin partición asignada, se le asigna una.
+            part = self.encontrar_particion_libre(proceso)
+            if part and part.presente:
+                # Se le asigna una.
+                part.proceso = proceso
+                proceso.estado = Estado.LISTO
+                return
+            
+            # Se le asigna una ya ocupada y se hace swap out a la victima.
+            part_ocupada = self.encontrar_particion(proceso)
+
+            part = part_ocupada.clonar()
+            part.proceso = proceso
+            self.mem_virtual.append(part)
+            self.swap_in_particion(part)
+            proceso.estado = Estado.LISTO
+
         if not part.presente:
+            # Proceso estaba suspendido, se lo trae a MP.
             self.swap_in_particion(part)
 
     def asignar_cpu(self):
@@ -205,14 +217,14 @@ class Simulador:
                 colorear_lista(
                     [pos, presente, pid, part.dir_inicio, part.memoria, mem_en_uso, part.frag_interna()],
                     part.proceso.estado if part.proceso else Estado.NUEVO))
-        print(f"\nTabla de memoria: (valores en bytes) (grado de multiprogramación = {self.grado_multiprogramacion()})")
+        print(f"\nTabla de memoria: (valores en bytes)")
         print(tabulate(tabla_memoria,
                        headers=["Partición", "Presente", "Proceso", "Dir. Inicio", "Tamaño", "Mem. en uso",
                                 "Frag. Interna"],
                        tablefmt="fancy_grid"))
 
         # Imprimir carga de trabajo
-        print("\n Carga de trabajo:")
+        print(f"\n Carga de trabajo: (grado de multiprogramación = {self.grado_multiprogramacion()})")
         print(self.carga_trabajo)
 
     def mostrar_reporte_final(self):
@@ -227,5 +239,6 @@ class Simulador:
 
         print("\n Reporte estadístico final:")
         print(tabulate(tabla, headers=["Proceso", "TA", "TI", "T. Espera", "T. Retorno"], tablefmt="fancy_grid"))
+        print("Instante de tiempo final:", self.t)
         print("Tiempo de espera promedio:", espera_total / len(self.carga_trabajo.procesos))
         print("Tiempo de retorno promedio:", retorno_total / len(self.carga_trabajo.procesos))
