@@ -1,0 +1,8 @@
+---
+title: Modelo de Clases del Simulador
+---
+classDiagram
+  Simulador o-- Particion: tiene
+  Simulador -- CargaTrabajo: simula
+  CargaTrabajo *-- Proceso: tiene
+  Proceso --  Particion: aloja
