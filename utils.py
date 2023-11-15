@@ -1,6 +1,6 @@
 from typing import List
 
-from colorama import Style
+from colorama import Style, just_fix_windows_console
 
 from Proceso import COLORES, Estado
 
@@ -23,3 +23,5 @@ def colorear(contenido: any, estado: Estado) -> str:
 def colorear_lista(lista: List, estado: Estado) -> List:
     """Formatea una fila (de cualquier tabla) para imprimirlas con colores (por consola)."""
     return [colorear(item, estado) for item in lista]
+
+just_fix_windows_console()

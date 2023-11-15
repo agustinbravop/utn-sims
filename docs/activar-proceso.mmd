@@ -3,9 +3,13 @@ title: Activar proceso
 ---
 flowchart TD
     H[/Proceso a activar/]
-    H --> I{"¿Partición \ndel proceso \n está en MV?"}
+    H --> I{"¿Proceso \n suspendido?"}
     I -- No --> Z
     M -- No --> N["Swap out de una \n partición víctima\n (del mismo tamaño \n que la del proceso)"] --> P
-    I -- Sí --> M{"¿Hay una \n partición libre y \n suficiente en MP?"}
+    I -- Sí --> R{"¿Ya tiene una \n partición \n asignada?"}
+    R -- Sí --> M{"¿Hay una \n partición libre y \n suficiente en MP?"}
     M -- Sí --> P[Swap in a \nesa partición] --> Z
+    R -- No --> S{"¿Hay una \n partición libre y \n suficiente en MP?"}
+    S -- Sí --> T[Asignar esa partición \n al proceso] --> Z 
+    S -- No --> U[Buscar partición \n según best-fit] --> V[Swap out de esa \n partición a MV] --> W[Asignar esa partición \n al proceso activado] --> Z 
     Z((Fin))

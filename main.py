@@ -16,7 +16,13 @@ def input_avanzar(prompt: str):
 
 def main():
     if len(sys.argv) < 2:
-        print("Falta el parámetro del archivo con el workload.")
+        print("""Falta el segundo parámetro que es el archivo con la carga de trabajo.
+              La carga de trabajo debe ser un CSV con las columnas 'PID;TI;TAN;Mem(kB)'.
+              Ej:   1;0;5;15
+                    2;0;4;20
+                    3;0;10;12
+                    4;1;3;5
+              Procesos que requieran más de 250 kB de memoria serán denegados.""")
         exit(1)
 
     carga_trabajo = CargaTrabajo(sys.argv[1])

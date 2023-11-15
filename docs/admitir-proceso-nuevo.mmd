@@ -7,6 +7,6 @@ flowchart TD
     H2 --> I{"¿Hay una \n partición libre y \n suficiente en MP?"}
     I -- Sí -->Q[Admitir el proceso\n y asignarlo a \n esa partición] --> Fin
     I -- No --> S{"¿Espacio \ndisponible en MV?\n (multiprog < 5)"}
-    S -- Sí -->R[Admitir el proceso \n suspendido en MV] --> Fin
+    S -- Sí -->R[Admitir el proceso \n suspendido sin \n particion asignada] --> Fin
     S -- No --> N["Rechazar el \n proceso (reintentar\n en el siguiente t)"] --> Fin
     Fin((Fin))
