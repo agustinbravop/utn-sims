@@ -13,18 +13,23 @@ Trabajo Práctico Integrador de la asignatura Sistemas Operativos.
 - Tres Palacios, Carlos (Testing).
 - Vázquez, Máximo Ezequiel (Programación).
 
+## Uso del simulador
+
+```
+python main.py workloads/livianos.csv
+```
+
+El punto de entrada del simulador es el archivo `main.py`, por lo que se lo puede ejecutar mediante el comando `python main.py`. Además requiere el nombre de un archivo CSV que contenga la carga de trabajo. Tenemos varias de prueba en la carpeta `/workloads`.
+
 ## Aspectos técnicos del simulador
 
 Según el enunciado:
 
 - El planificador a corto plazo usa la estrategia **round robin** con un **quantum igual a 2**.
 - El esquema de memoria tiene una partición exclusiva para el sistema operativo y otras **tres particiones fijas**:
--
-    - **250 kB** para trabajos grandes,
--
-    - **120 kB** para trabajos medianos,
--
-    - y **60 kB** para trabajos pequeños.
+- - **250 kB** para trabajos grandes,
+- - **120 kB** para trabajos medianos,
+- - y **60 kB** para trabajos pequeños.
 - La política de asignación a dicha memoria es **best-fit**.
 - El simulador acepta una carga de trabajo con **hasta 10 procesos**.
 - El simulador soporta un **grado de multiprogramación igual a 5** como máximo, pero la memoria principal solo permite 3
@@ -43,4 +48,3 @@ Decisiones de diseño del grupo:
   vuelve a intentar admitir en cada delta de tiempo hasta que otro proceso termine.
 - Creamos un estado especial `DENEGADO` para los procesos que requieren una cantidad de memoria mayor al tamaño de la
   partición de memoria más grande, por lo que jamás podría ser admitido. Se lo envía al estado `DENEGADO` para siempre.
-   
